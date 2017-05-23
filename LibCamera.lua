@@ -196,26 +196,6 @@ end
 -------------
 -- ZOOMING --
 -------------
-local realCameraZoomIn = CameraZoomIn;
-local realCameraZoomOut = CameraZoomOut;
-local function LockedZoom()
-    --print("Locked zoom!");
-end
-function LibCamera:LockZoom()
-    -- make sure that we're not using the functions
-    CameraZoomIn(0, true);
-    CameraZoomOut(0, true);
-
-    -- override the default function
-    CameraZoomIn = LockedZoom;
-    CameraZoomOut = LockedZoom;
-end
-
-function LibCamera:UnlockZoom()
-    CameraZoomIn = realCameraZoomIn;
-    CameraZoomOut = realCameraZoomOut;
-end
-
 local function reallyStopZooming()
     -- this might be overkill, but we really want to make sure that the camera isn't moving!
     CameraZoomIn(0, true);
@@ -419,6 +399,10 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
     cvarZoom = func;
 end
 
+function LibCamera:IsZooming()
+    return (easingZoom ~= nil) or (cvarZoom ~= nil);
+end
+
 function LibCamera:StopZooming()
     -- if we currently have something running, make sure to cancel it!
     if (easingZoom) then
@@ -556,6 +540,10 @@ function LibCamera:BeginContinuousYaw(endSpeed, duration)
     continousYaw = func;
 end
 
+function LibCamera:IsYawing()
+    return (easingYaw ~= nil) or (continousYaw ~= nil);
+end
+
 function LibCamera:StopYawing()
     local yawAmount;
 
@@ -643,6 +631,10 @@ function LibCamera:Pitch(endValue, duration, easingFunc, callback)
     -- register OnUpdate, to call every frame until done
     RegisterOnUpdateFunc(func);
     easingPitch = func;
+end
+
+function LibCamera:IsPitching()
+    return (easingPitch ~= nil);
 end
 
 function LibCamera:StopPitching()
