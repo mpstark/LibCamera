@@ -2,7 +2,7 @@
 A World of Warcraft library addon for applying camera motion in a smooth manner using easing functions.
 
 ## Usage:
-As with any LibStub based libary, get alibrary access object first
+As with any LibStub based libary, get a library access object first
 ```
 local LibCamera = LibStub("LibCamera-1.0");
 ```
