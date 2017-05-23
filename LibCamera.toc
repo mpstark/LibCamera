@@ -1,0 +1,7 @@
+## Interface: 70200
+## Version: 1.0
+## Title: LibCamera
+## Author: mpstark
+## Notes: A library for camera motion.
+
+LibCamera.lua
