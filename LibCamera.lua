@@ -1,7 +1,7 @@
 ---------------
 -- LIBCAMERA --
 ---------------
-local MAJOR, MINOR = "LibCamera-1.0", 1;
+local MAJOR, MINOR = "LibCamera-1.0", 2;
 local LibCamera = LibStub:NewLibrary(MAJOR, MINOR);
 
 if (not LibCamera) then
