@@ -54,8 +54,13 @@ local function SetupOnUpdate()
 end
 
 local function RegisterOnUpdateFunc(func)
+    local updateFunc = func;
+    if (type(func) == 'table' and func.updateFunc) then
+        updateFunc = func.updateFunc;
+    end
+
     -- add to the list
-    onUpdateFunc[func] = func;
+    onUpdateFunc[func] = updateFunc;
 
     -- make sure that an OnUpdate script is on our frame
     SetupOnUpdate();
@@ -65,39 +70,12 @@ local function CancelOnUpdateFunc(func)
     if (onUpdateFunc[func]) then
         -- remove from the list
         onUpdateFunc[func] = nil;
+
+        -- if (func.callback) then
+        --     func.callback();
+        -- end
     end
 end
-
-
------------
--- HOOKS --
------------
-
-
-------------
--- EVENTS --
-------------
--- LibCamera.frame:RegisterEvent("PLAYER_ENTERING_WORLD");
--- LibCamera.frame:RegisterEvent("PLAYER_LEAVING_WORLD");
-
--- -- Script to fire blizzard events into the event listeners
--- LibCamera.frame:SetScript("OnEvent", function(this, event, ...)
---     if (LibCamera[event]) then
---         LibCamera[event](...);
---     end
--- end);
-
--- function LibCamera:PLAYER_ENTERING_WORLD()
---     -- exiting a loading screen
---     print("PLAYER_ENTERING_WORLD")
---     pauseOnUpdate = false;
--- end
-
--- function LibCamera:PLAYER_LEAVING_WORLD()
---     -- going into a loading screen
---     print("PLAYER_LEAVING_WORLD")
---     pauseOnUpdate = true;
--- end
 
 
 -------------
@@ -129,15 +107,12 @@ local function getEaseVelocity(easingFunc, increment, t, b, c, d, ...)
     local halfIncrement = increment/2.0;
 
     if (t > halfIncrement and (t + halfIncrement < d)) then
-        --print("    MID");
         return (easingFunc(t + halfIncrement, b, c, d, ...) - easingFunc(t - halfIncrement, b, c, d, ...))/increment;
     elseif (t < halfIncrement and (t + increment < d)) then
         -- before halfIncrement, which means that can can't trust anything before t
-        --print("    BEGIN");
         return (easingFunc(t + increment, b, c, d, ...) - easingFunc(t, b, c, d, ...))/increment;
     elseif (t + halfIncrement > d) then
         -- after the last increment, can't go beyond d
-        --print("    END");
         return (easingFunc(t, b, c, d, ...) - easingFunc(t - increment, b, c, d, ...))/increment;
     end
 end
@@ -166,7 +141,6 @@ local function rebaseEaseTime(easingFunc, precision, x, t, b, c, d, ...)
 
             -- ahead of time
             tPrime = tPrime + change;
-            --print("  +", change)
 
             lastWasForward = true;
         else
@@ -177,7 +151,6 @@ local function rebaseEaseTime(easingFunc, precision, x, t, b, c, d, ...)
 
             -- behind time
             tPrime = tPrime - change;
-            --print("  -", change)
 
             lastWasForward = false;
         end
@@ -188,7 +161,6 @@ local function rebaseEaseTime(easingFunc, precision, x, t, b, c, d, ...)
         numIter = numIter + 1;
     end
 
-    --print("           ",numIter)
     return tPrime;
 end
 
@@ -219,7 +191,6 @@ local MAX_POS_ERROR = 0.5;
 function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
     -- start every zoom by making sure that we stop zooming
     self:StopZooming();
-    -- print("SetZoom", endValue, duration, "Current zoom", GetCameraZoom());
 
     -- assume easeInOutQuad if not provided
     if (not easingFunc) then
@@ -267,8 +238,6 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
                         beginTime = beginTime - tDiff;
                         t = currentTime - beginTime;
                         -- expectedValue = easingFunc(t, beginValue, change, duration);
-
-                        -- print(string.format("  frame %d: rebasing by %.4f, new expect: %.2f, caused by posError: %.4f", frameCount, tDiff, expectedValue, posError));
                         -- posError = currentValue - expectedValue;
                     end
                 end
@@ -281,13 +250,11 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
             else
                 -- use linear speed on the last two possible frames
                 -- linear assuming next frame is on interval time
-                --print("USED LINEAR TIME");
                 speed = (endValue - currentValue)/interval;
             end
 
             -- speed didn't return, which generally means that the duration was shorter than the framerate
             if (not speed) then
-                --print("something wrong")
                 return nil;
             end
 
@@ -297,12 +264,17 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
                 MoveViewInStart(-speed/getZoomSpeed());
             end
 
-            -- print(string.format("frame: %d, position: %.2f, expect: %.2f, speed: %.2f, posError: %.4f, deltaTime: %0.4f", frameCount, currentValue, expectedValue, speed, posError, deltaTime));
-
             return true;
         else
             -- we're done, either out of time, or beyond position
             reallyStopZooming();
+
+            if (math.abs(currentValue - endValue) > 0.5) then
+                -- HACK: fix the weird zooming in way too far during certain
+                --print("|cffff0000", "LibCamera Debug: Zoom ended out of spec, trying to correct", currentValue, endValue);
+                self:SetZoomUsingCVar(endValue, .5, callback);
+                return nil;
+            end
 
             -- call the callback if provided
             if (callback) then callback() end;
@@ -313,13 +285,14 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
     end
 
     -- register OnUpdate, to call every frame until done
-    RegisterOnUpdateFunc(func);
-    easingZoom = func;
+    easingZoom = {};
+    easingZoom.callback = callback;
+    easingZoom.updateFunc = func;
+    RegisterOnUpdateFunc(easingZoom);
 end
 
 local cvarZoom;
 local oldSpeed;
-local CVAR_ZOOM_NUM_FRAMES_STATIC = 5;
 function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
     -- start every zoom by making sure that we stop zooming
     self:StopZooming();
@@ -328,15 +301,16 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
     local change = endValue - beginValue;
     local speed = math.abs(math.min(50, math.abs((change/duration))));
 
+    local startTime = GetTime();
+    local endTime = startTime + duration;
+
     oldSpeed = getZoomSpeed();
 
     -- set the zoom cvar to what will get us to the endValue in the duration
     SetCVar("cameraZoomSpeed", speed);
-    --print("Setting cameraZoomSpeed to", speed);
 
     local triggeredZoom = false;
 
-    local numFramesStatic = 0;
     local lastValue = GetCameraZoom();
     local func = function()
         -- trigger zoom only once but ON THE NEXT FRAME
@@ -346,10 +320,8 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
             -- second parameter is just to let other addons know that this is zoom triggered by an addon
             if (change > 0) then
                 CameraZoomOut(change, true);
-                --print("Zoom out", change);
             elseif (change < 0) then
                 CameraZoomIn(-change, true);
-                --print("Zoom in", -change);
             end
 
             triggeredZoom = true;
@@ -358,33 +330,28 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
         local currentValue = GetCameraZoom();
 
         -- check if we've got beyond the position that we were aiming for
-        local beyondPosition = ((change > 0 and currentValue >= endValue) or (change < 0 and currentValue <= endValue));
-
-        -- count the number of frames that we stayed static
-        if (lastValue == currentValue and lastValue ~= beginValue) then
-            numFramesStatic = numFramesStatic + 1;
-            -- print("Static frame!")
-        else
-            -- reset counter if zoom resumes
-            numFramesStatic = 0;
-        end
-
+        -- local beyondPosition = (change > 0 and currentValue >= endValue) or (change < 0 and currentValue <= endValue);
         local goingWrongWay = (change > 0 and lastValue > currentValue) or (change < 0 and lastValue < currentValue);
+        local timeOver = endTime < GetTime()
 
         lastValue = currentValue;
 
-        if ((numFramesStatic < CVAR_ZOOM_NUM_FRAMES_STATIC) and not beyondPosition and not goingWrongWay) then
+        if (not timeOver and not goingWrongWay) then
             -- we're still zooming or we should be
             return true;
         else
-            -- we should have stopped zooming or the camera stood still for a bit
-
+            -- we should have stopped zooming
             -- set the zoom cvar to what it was before this happened
-            -- print("Ending, setting cameraZoomSpeed back to", oldSpeed);
             if (oldSpeed) then
                 SetCVar("cameraZoomSpeed", oldSpeed);
                 oldSpeed = nil;
             end
+
+            -- if (not goingWrongWay and math.abs(currentValue - endValue) > 0.5) then
+            --     print("|cffff0000", "LibCamera Debug: CVar Zoom ended out of spec", currentValue, endValue);
+            -- elseif (goingWrongWay) then
+            --     print("|cffff0000", "LibCamera Debug: CVar Zoom ended because going wrong way.");
+            -- end
 
             -- call the callback if provided
             if (callback) then callback() end;
@@ -395,8 +362,11 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
     end
 
     -- register OnUpdate, to call every frame until done
-    RegisterOnUpdateFunc(func);
-    cvarZoom = func;
+    cvarZoom = {};
+    cvarZoom.callback = callback;
+    cvarZoom.updateFunc = func;
+
+    RegisterOnUpdateFunc(cvarZoom);
 end
 
 function LibCamera:IsZooming()
@@ -431,7 +401,6 @@ end
 local easingYaw;
 local lastYaw;
 function LibCamera:Yaw(endValue, duration, easingFunc, callback)
-    --print("Yaw", endValue, duration);
     -- start every yaw
     self:StopYawing();
 
@@ -468,8 +437,6 @@ function LibCamera:Yaw(endValue, duration, easingFunc, callback)
             lastYaw = nil;
             self:StopYawing();
 
-            --print("Stopped yawing");
-
             -- call the callback if provided
             if (callback) then callback() end;
 
@@ -491,8 +458,6 @@ function LibCamera:BeginContinuousYaw(endSpeed, duration)
     local lastSpeed, lastTime;
     local isCoasting = false;
 
-    -- print("begin rotating", endSpeed, duration)
-
     elaspedYaw = 0;
 
     local func = function()
@@ -510,7 +475,6 @@ function LibCamera:BeginContinuousYaw(endSpeed, duration)
             -- linear increase of velocity
             speed = endSpeed * (currentTime - beginTime) / duration;
 
-            -- print("Ramping up, now speed", speed)
             if (speed > 0) then
                 MoveViewRightStart(speed/getYawSpeed());
             elseif (speed < 0) then
@@ -581,7 +545,6 @@ end
 local easingPitch;
 local lastPitch;
 function LibCamera:Pitch(endValue, duration, easingFunc, callback)
-    --print("Pitch", endValue, duration);
     -- start every pitch
     self:StopPitching();
 
@@ -618,8 +581,6 @@ function LibCamera:Pitch(endValue, duration, easingFunc, callback)
 
             -- stop the camera, we're there
             self:StopPitching();
-
-            --print("Stopped pitching");
 
             -- call the callback if provided
             if (callback) then callback() end;
