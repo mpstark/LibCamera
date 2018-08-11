@@ -174,14 +174,6 @@ local function reallyStopZooming()
     CameraZoomOut(0, true);
     MoveViewOutStart(0);
     MoveViewInStart(0);
-    MoveViewOutStart(0);
-    MoveViewInStart(0);
-    MoveViewOutStart(0);
-    MoveViewInStart(0);
-    MoveViewInStop();
-    MoveViewOutStop();
-    MoveViewInStop();
-    MoveViewOutStop();
     MoveViewInStop();
     MoveViewOutStop();
 end
@@ -267,19 +259,16 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
             return true;
         else
             -- we're done, either out of time, or beyond position
-            reallyStopZooming();
+            self:StopZooming();
 
+            -- HACK: fix the weird zooming in way too far during certain
             if (math.abs(currentValue - endValue) > 0.5) then
-                -- HACK: fix the weird zooming in way too far during certain
-                --print("|cffff0000", "LibCamera Debug: Zoom ended out of spec, trying to correct", currentValue, endValue);
                 self:SetZoomUsingCVar(endValue, .5, callback);
                 return nil;
             end
 
             -- call the callback if provided
             if (callback) then callback() end;
-
-            easingZoom = nil;
             return nil;
         end
     end
@@ -341,22 +330,8 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
             return true;
         else
             -- we should have stopped zooming
-            -- set the zoom cvar to what it was before this happened
-            if (oldSpeed) then
-                SetCVar("cameraZoomSpeed", oldSpeed);
-                oldSpeed = nil;
-            end
-
-            -- if (not goingWrongWay and math.abs(currentValue - endValue) > 0.5) then
-            --     print("|cffff0000", "LibCamera Debug: CVar Zoom ended out of spec", currentValue, endValue);
-            -- elseif (goingWrongWay) then
-            --     print("|cffff0000", "LibCamera Debug: CVar Zoom ended because going wrong way.");
-            -- end
-
-            -- call the callback if provided
+            self:StopZooming();
             if (callback) then callback() end;
-
-            cvarZoom = nil;
             return nil;
         end
     end
@@ -369,8 +344,42 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
     RegisterOnUpdateFunc(cvarZoom);
 end
 
+local customZoom;
+function LibCamera:CustomZoom(zoomFunction, callback)
+    self:StopZooming();
+
+    local lastSpeed = 0;
+    local func = function()
+        local speed = zoomFunction();
+
+        if (not speed) then
+            -- zoom function returned nil, stop the camera zoom, unregister the function
+            self:StopZooming();
+            if (callback) then callback() end;
+            return nil;
+        end
+
+        if (speed == 0 and lastSpeed ~= 0) then
+            reallyStopZooming();
+        elseif (speed > 0) then
+            MoveViewOutStart(speed/getZoomSpeed());
+        elseif (speed < 0) then
+            MoveViewInStart(-speed/getZoomSpeed());
+        end
+
+        lastSpeed = speed;
+        return true;
+    end
+
+    -- register OnUpdate, to call every frame until done
+    customZoom = {};
+    customZoom.callback = callback;
+    customZoom.updateFunc = func;
+    RegisterOnUpdateFunc(customZoom);
+end
+
 function LibCamera:IsZooming()
-    return (easingZoom ~= nil) or (cvarZoom ~= nil);
+    return (easingZoom ~= nil) or (cvarZoom ~= nil) or (customZoom ~= nil);
 end
 
 function LibCamera:StopZooming()
@@ -378,6 +387,11 @@ function LibCamera:StopZooming()
     if (easingZoom) then
         CancelOnUpdateFunc(easingZoom);
         easingZoom = nil;
+    end
+
+    if (customZoom) then
+        CancelOnUpdateFunc(customZoom);
+        customZoom = nil;
     end
 
     if (cvarZoom) then
