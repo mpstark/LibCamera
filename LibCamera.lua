@@ -71,9 +71,9 @@ local function CancelOnUpdateFunc(func)
         -- remove from the list
         onUpdateFunc[func] = nil;
 
-        -- if (func.callback) then
-        --     func.callback();
-        -- end
+        if (func.callback) then
+            func.callback(true);
+        end
     end
 end
 
@@ -268,7 +268,10 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
             end
 
             -- call the callback if provided
-            if (callback) then callback() end;
+            if (callback) then
+                callback();
+                easingZoom.callback = nil;
+            end;
             return nil;
         end
     end
@@ -331,7 +334,10 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
         else
             -- we should have stopped zooming
             self:StopZooming();
-            if (callback) then callback() end;
+            if (callback) then
+                callback();
+                cvarZoom.callback = nil;
+            end;
             return nil;
         end
     end
@@ -340,7 +346,6 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
     cvarZoom = {};
     cvarZoom.callback = callback;
     cvarZoom.updateFunc = func;
-
     RegisterOnUpdateFunc(cvarZoom);
 end
 
@@ -355,7 +360,10 @@ function LibCamera:CustomZoom(zoomFunction, callback)
         if (not speed) then
             -- zoom function returned nil, stop the camera zoom, unregister the function
             self:StopZooming();
-            if (callback) then callback() end;
+            if (callback) then
+                callback();
+                customZoom.callback = nil;
+            end
             return nil;
         end
 
@@ -452,15 +460,20 @@ function LibCamera:Yaw(endValue, duration, easingFunc, callback)
             self:StopYawing();
 
             -- call the callback if provided
-            if (callback) then callback() end;
+            if (callback) then
+                callback();
+                easingYaw.callback = nil;
+            end
 
             return nil;
         end
     end
 
     -- register OnUpdate, to call every frame until done
-    RegisterOnUpdateFunc(func);
-    easingYaw = func;
+    easingYaw = {};
+    easingYaw.callback = callback;
+    easingYaw.updateFunc = func;
+    RegisterOnUpdateFunc(easingYaw);
 end
 
 local continousYaw;
@@ -514,8 +527,10 @@ function LibCamera:BeginContinuousYaw(endSpeed, duration)
         end
     end
 
+    -- register OnUpdate, to call every frame until done
+    continousYaw = {};
+    continousYaw.updateFunc = func;
     RegisterOnUpdateFunc(func);
-    continousYaw = func;
 end
 
 function LibCamera:IsYawing()
@@ -597,15 +612,20 @@ function LibCamera:Pitch(endValue, duration, easingFunc, callback)
             self:StopPitching();
 
             -- call the callback if provided
-            if (callback) then callback() end;
+            if (callback) then
+                callback();
+                easingPitch.callback = nil;
+            end
 
             return nil;
         end
     end
 
     -- register OnUpdate, to call every frame until done
-    RegisterOnUpdateFunc(func);
-    easingPitch = func;
+    easingPitch = {};
+    easingPitch.callback = callback;
+    easingPitch.updateFunc = func;
+    RegisterOnUpdateFunc(easingPitch);
 end
 
 function LibCamera:IsPitching()
