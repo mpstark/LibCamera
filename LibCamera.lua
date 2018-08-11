@@ -270,7 +270,10 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
             -- call the callback if provided
             if (callback) then
                 callback();
-                easingZoom.callback = nil;
+
+                if (easingZoom) then
+                    easingZoom.callback = nil;
+                end
             end;
             return nil;
         end
@@ -336,7 +339,10 @@ function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
             self:StopZooming();
             if (callback) then
                 callback();
-                cvarZoom.callback = nil;
+
+                if (cvarZoom) then
+                    cvarZoom.callback = nil;
+                end
             end;
             return nil;
         end
@@ -362,7 +368,10 @@ function LibCamera:CustomZoom(zoomFunction, callback)
             self:StopZooming();
             if (callback) then
                 callback();
-                customZoom.callback = nil;
+
+                if (customZoom) then
+                    customZoom.callback = nil;
+                end
             end
             return nil;
         end
@@ -462,7 +471,10 @@ function LibCamera:Yaw(endValue, duration, easingFunc, callback)
             -- call the callback if provided
             if (callback) then
                 callback();
-                easingYaw.callback = nil;
+
+                if (easingYaw) then
+                    easingYaw.callback = nil;
+                end
             end
 
             return nil;
@@ -614,7 +626,10 @@ function LibCamera:Pitch(endValue, duration, easingFunc, callback)
             -- call the callback if provided
             if (callback) then
                 callback();
-                easingPitch.callback = nil;
+
+                if (easingPitch) then
+                    easingPitch.callback = nil;
+                end
             end
 
             return nil;
