@@ -542,7 +542,7 @@ function LibCamera:BeginContinuousYaw(endSpeed, duration)
     -- register OnUpdate, to call every frame until done
     continousYaw = {};
     continousYaw.updateFunc = func;
-    RegisterOnUpdateFunc(func);
+    RegisterOnUpdateFunc(continousYaw);
 end
 
 function LibCamera:IsYawing()
