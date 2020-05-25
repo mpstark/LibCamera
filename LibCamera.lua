@@ -1,7 +1,7 @@
 ---------------
 -- LIBCAMERA --
 ---------------
-local MAJOR, MINOR = "LibCamera-1.0", 2;
+local MAJOR, MINOR = "LibCamera-1.0", 3;
 local LibCamera = LibStub:NewLibrary(MAJOR, MINOR);
 
 if (not LibCamera) then
@@ -93,6 +93,10 @@ local function getPitchSpeed()
     return tonumber(GetCVar("cameraPitchMoveSpeed"));
 end
 
+
+-- (t == 0)   If currentTime (t) is 0 we return beginValue (b).
+-- (t == d)   If currentTime (t) is the duration (d), we return beginValue + change (b+c).
+-- The question is how we get from the former to the latter.
 local function easeInOutQuad(t, b, c, d)
     t = t / d * 2;
     if t < 1 then
@@ -189,30 +193,30 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
         easingFunc = easeInOutQuad;
     end
 
-    -- we want to start the counter on the frame the the zoom started
+    -- we want to start the counter on the frame the zoom started
     local beginTime;
     local beginValue;
     local change;
     local frameCount = 0;
-    local lastFrameTime;
 
     -- create a closure, for OnUpdate
     local func = function()
-        local currentTime = GetTime();
-        local currentValue = GetCameraZoom();
-        -- local deltaTime = currentTime - (lastFrameTime or currentTime);
 
+        -- func() gets called one frame after SetZoom(). This is why we set the values here!
         beginTime = beginTime or GetTime();
         beginValue = beginValue or GetCameraZoom();
         change = change or (endValue - beginValue);
 
+        frameCount = frameCount + 1;
+
+        local currentTime = GetTime();
+        local currentValue = GetCameraZoom();
+
         local beyondPosition = ((change > 0 and currentValue >= endValue) or (change < 0 and currentValue <= endValue));
 
-        frameCount = frameCount + 1;
-        lastFrameTime = GetTime();
-
+        -- Still in time and not yet beyond destination position.
         if ((beginTime + duration > currentTime) and not beyondPosition) then
-            -- still in time
+
             local interval = 1.0/60.0;
 
             local t = currentTime - beginTime;
@@ -223,20 +227,27 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
                 -- we're off the mark, try to rebase our time so that we're in the right time for our current position
                 -- don't try to do this on the first frame
                 if (math.abs(posError) > MAX_POS_ERROR) then
-                    local tPrime = rebaseEaseTime(easingFunc, 0.005, currentValue, t, beginValue, change, duration);
-                    local tDiff = tPrime - t;
 
+                    -- print("Got a position error of", posError, "-> expectedValue", expectedValue, "!= currentValue", currentValue)
+
+                    local tPrime = rebaseEaseTime(easingFunc, 0.005, currentValue, t, beginValue, change, duration);
+
+                    -- If the actual value is still within our expected duration time window...
                     if (tPrime > 0 and tPrime < duration) then
+
+                        local tDiff = tPrime - t;
+
+                        -- Let's henceforth pretend that beginTime = beginTime - tDiff
+                        -- and that we are at t = currentTime - beginTime.
                         beginTime = beginTime - tDiff;
                         t = currentTime - beginTime;
-                        -- expectedValue = easingFunc(t, beginValue, change, duration);
-                        -- posError = currentValue - expectedValue;
                     end
                 end
             end
 
             local speed;
 
+            -- If we have not yet reached the last two invervals.
             if (duration - t > 2*interval) then
                 speed = getEaseVelocity(easingFunc, interval, t, beginValue, change, duration);
             else
@@ -250,14 +261,18 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
                 return nil;
             end
 
+
+
             if (speed > 0) then
                 MoveViewOutStart(speed/getZoomSpeed());
             elseif (speed < 0) then
                 MoveViewInStart(-speed/getZoomSpeed());
             end
 
+
             return true;
         else
+
             -- we're done, either out of time, or beyond position
             self:StopZooming();
 
@@ -269,7 +284,8 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
 
             -- call the callback if provided
             if (callback) then
-                callback();
+                -- Not necessary to call callback() here, because it was already called as easingZoom.callback by StopZooming() above.
+                -- callback();
 
                 if (easingZoom) then
                     easingZoom.callback = nil;
@@ -289,6 +305,7 @@ end
 local cvarZoom;
 local oldSpeed;
 function LibCamera:SetZoomUsingCVar(endValue, duration, callback)
+
     -- start every zoom by making sure that we stop zooming
     self:StopZooming();
 
@@ -399,7 +416,11 @@ function LibCamera:IsZooming()
     return (easingZoom ~= nil) or (cvarZoom ~= nil) or (customZoom ~= nil);
 end
 
-function LibCamera:StopZooming()
+
+
+-- Set not_really argument to true to skip the final call of reallyStopZooming().
+function LibCamera:StopZooming(not_really)
+
     -- if we currently have something running, make sure to cancel it!
     if (easingZoom) then
         CancelOnUpdateFunc(easingZoom);
@@ -422,8 +443,22 @@ function LibCamera:StopZooming()
         end
     end
 
+    if not_really then return end
+    
     reallyStopZooming();
 end
+
+
+
+-- A function to function to check if zooming is in progress.
+function LibCamera:ZoomInProgress()
+  if easingZoom or customZoom or cvarZoom then
+    return true
+  else
+    return false
+  end
+end
+
 
 
 --------------
