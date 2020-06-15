@@ -212,10 +212,10 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
         local currentTime = GetTime();
         local currentValue = GetCameraZoom();
 
-        local beyondPosition = ((change > 0 and currentValue >= endValue) or (change < 0 and currentValue <= endValue));
+        local beyondPosition = (change > 0 and currentValue >= endValue) or (change < 0 and currentValue <= endValue);
 
         -- Still in time and not yet beyond destination position.
-        if ((beginTime + duration > currentTime) and not beyondPosition) then
+        if not beyondPosition and beginTime + duration > currentTime then
 
             local interval = 1.0/60.0;
 
@@ -419,6 +419,9 @@ end
 
 
 -- Set not_really argument to true to skip the final call of reallyStopZooming().
+-- Needed for when a mouse-wheel non-reactive zoom interrupts a zoom easing
+-- currently in progress. If we execute reallyStopZooming() the non-reactive zoom
+-- will have no effect.
 function LibCamera:StopZooming(not_really)
 
     -- if we currently have something running, make sure to cancel it!
@@ -452,11 +455,7 @@ end
 
 -- A function to function to check if zooming is in progress.
 function LibCamera:ZoomInProgress()
-  if easingZoom or customZoom or cvarZoom then
-    return true
-  else
-    return false
-  end
+  return easingZoom or customZoom or cvarZoom
 end
 
 
