@@ -36,7 +36,7 @@ Will stop any previous yawing of the camera
 `LibCamera:Yaw(90, 1); -- yaw the camera 90 degrees to the right over a second`
 
 ### LibCamera:BeginContinuousYaw(endSpeed, duration)
-Begin continously yawing (positive speed, right; negative speed, left), starts at 0 speed and goes to `endSpeed` linearly over the provided duration
+Begin continuously yawing (positive speed, right; negative speed, left), starts at 0 speed and goes to `endSpeed` linearly over the provided duration
 
 ### LibCamera:IsYawing()
 Returns true if LibCamera is currently yawing

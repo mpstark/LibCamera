@@ -173,9 +173,8 @@ end
 -- ZOOMING --
 -------------
 local function reallyStopZooming()
-    -- this might be overkill, but we really want to make sure that the camera isn't moving!
-    CameraZoomIn(0, true);
-    CameraZoomOut(0, true);
+    -- print("reallyStopZooming")
+
     MoveViewOutStart(0);
     MoveViewInStart(0);
     MoveViewInStop();
@@ -412,13 +411,14 @@ function LibCamera:CustomZoom(zoomFunction, callback)
     RegisterOnUpdateFunc(customZoom);
 end
 
+
+-- A function to function to check if zooming is in progress.
 function LibCamera:IsZooming()
     return (easingZoom ~= nil) or (cvarZoom ~= nil) or (customZoom ~= nil);
 end
 
 
-
--- Set not_really argument to true to skip the final call of reallyStopZooming().
+-- Set not_really argument to skip the final call of reallyStopZooming().
 -- Needed for when a mouse-wheel non-reactive zoom interrupts a zoom easing
 -- currently in progress. If we execute reallyStopZooming() the non-reactive zoom
 -- will have no effect.
@@ -447,16 +447,13 @@ function LibCamera:StopZooming(not_really)
     end
 
     if not_really then return end
-    
+
     reallyStopZooming();
 end
 
 
 
--- A function to function to check if zooming is in progress.
-function LibCamera:ZoomInProgress()
-  return easingZoom or customZoom or cvarZoom
-end
+
 
 
 
@@ -522,7 +519,7 @@ function LibCamera:Yaw(endValue, duration, easingFunc, callback)
     RegisterOnUpdateFunc(easingYaw);
 end
 
-local continousYaw;
+local continuousYaw;
 local elaspedYaw;
 function LibCamera:BeginContinuousYaw(endSpeed, duration)
     self:StopYawing();
@@ -574,13 +571,13 @@ function LibCamera:BeginContinuousYaw(endSpeed, duration)
     end
 
     -- register OnUpdate, to call every frame until done
-    continousYaw = {};
-    continousYaw.updateFunc = func;
-    RegisterOnUpdateFunc(continousYaw);
+    continuousYaw = {};
+    continuousYaw.updateFunc = func;
+    RegisterOnUpdateFunc(continuousYaw);
 end
 
 function LibCamera:IsYawing()
-    return (easingYaw ~= nil) or (continousYaw ~= nil);
+    return (easingYaw ~= nil) or (continuousYaw ~= nil);
 end
 
 function LibCamera:StopYawing()
@@ -599,9 +596,9 @@ function LibCamera:StopYawing()
     end
 
     -- if we are continually yawing, then stop that
-    if (continousYaw) then
-        CancelOnUpdateFunc(continousYaw);
-        continousYaw = nil;
+    if (continuousYaw) then
+        CancelOnUpdateFunc(continuousYaw);
+        continuousYaw = nil;
 
         -- return elapsed yaw
         if (elaspedYaw) then
@@ -704,7 +701,7 @@ function LibCamera:StopPitching()
 end
 
 function LibCamera:IsRotating()
-    return (easingYaw ~= nil) or (continousYaw ~= nil) or (easingPitch ~= nil);
+    return (easingYaw ~= nil) or (continuousYaw ~= nil) or (easingPitch ~= nil);
 end
 
 function LibCamera:StopRotating()
