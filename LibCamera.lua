@@ -185,6 +185,9 @@ end
 local easingZoom;
 local MAX_POS_ERROR = 0.5;
 function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
+
+    -- print("SetZoom", endValue, duration)
+
     -- start every zoom by making sure that we stop zooming
     self:StopZooming();
 
@@ -276,8 +279,10 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
             -- we're done, either out of time, or beyond position
             self:StopZooming();
 
-            -- HACK: fix the weird zooming in way too far during certain
-            if (math.abs(currentValue - endValue) > 0.5) then
+            -- Make a correction when reactive zoom misses the target.
+            -- 0.05 is the smallest increment possible for OldCameraZoomIn/OldCameraZoomOut.
+            if (math.abs(currentValue - endValue) > 0.05) then
+                -- print("Ups, going back from", currentValue, "to", endValue)
                 self:SetZoomUsingCVar(endValue, .5, callback);
                 return nil;
             end
@@ -424,6 +429,8 @@ end
 -- will have no effect.
 function LibCamera:StopZooming(not_really)
 
+    -- print("StopZooming")
+
     -- if we currently have something running, make sure to cancel it!
     if (easingZoom) then
         CancelOnUpdateFunc(easingZoom);
@@ -447,7 +454,7 @@ function LibCamera:StopZooming(not_really)
     end
 
     if not_really then return end
-    
+
     reallyStopZooming();
 end
 
