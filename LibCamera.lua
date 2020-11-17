@@ -21,26 +21,37 @@ local onUpdateFunc = {};
 -- ONUPDATE --
 --------------
 local lastUpdate;
-local pauseOnUpdate = false;
 local MAX_UPDATE_TIME = 1.0/120.0;
 local function FrameOnUpdate(self, time)
-    if (not pauseOnUpdate) then
-        if (not lastUpdate or (lastUpdate + MAX_UPDATE_TIME) < GetTime()) then
-            for k,func in pairs(onUpdateFunc) do
-                -- run the function, if it returns nil, remove it
-                if (func() == nil) then
-                    onUpdateFunc[k] = nil;
-                end
+
+    if (not lastUpdate or (lastUpdate + MAX_UPDATE_TIME) < GetTime()) then
+
+        -- Calling the update function of reactive zoom easing
+        -- may call SetZoomUsingCVar() (if it misses the mark),
+        -- which will itself insert a new update function into
+        -- onUpdateFunc. Inserting into a table while traversing
+        -- can lead to "invalid key to 'next'" errors. So we have
+        -- to copy the table before we traverse it.
+        local onUpdateFuncCopy = {}
+        for k, func in pairs(onUpdateFunc) do
+            onUpdateFuncCopy[k] = func;
+        end
+
+        -- However, setting entries to nil while traversing a table is possible.
+        for k, func in pairs(onUpdateFuncCopy) do
+            if (func() == nil) then
+                onUpdateFunc[k] = nil;
             end
-
-            lastUpdate = GetTime();
         end
 
-        -- remove onupdate if there isn't anything to check
-        if (next(onUpdateFunc) == nil) then
-            LibCamera.frame:SetScript("OnUpdate", nil);
-        end
+        lastUpdate = GetTime();
     end
+
+    -- remove onupdate if there isn't anything to check
+    if (next(onUpdateFunc) == nil) then
+        LibCamera.frame:SetScript("OnUpdate", nil);
+    end
+
 end
 
 local function SetupOnUpdate()
@@ -282,7 +293,7 @@ function LibCamera:SetZoom(endValue, duration, easingFunc, callback)
             -- 0.05 is the smallest increment possible for OldCameraZoomIn/OldCameraZoomOut.
             if (math.abs(currentValue - endValue) > 0.05) then
                 -- print("Ups, going back from", currentValue, "to", endValue)
-                self:SetZoomUsingCVar(endValue, .5, callback);
+                self:SetZoomUsingCVar(endValue, .1, callback);
                 return nil;
             end
 
