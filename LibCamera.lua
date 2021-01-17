@@ -481,6 +481,11 @@ end
 local easingYaw;
 local lastYaw;
 function LibCamera:Yaw(endValue, duration, easingFunc, callback)
+
+    if duration == 0 then
+        duration = 0.05
+    end
+
     -- start every yaw
     self:StopYawing();
 
@@ -635,6 +640,11 @@ end
 local easingPitch;
 local lastPitch;
 function LibCamera:Pitch(endValue, duration, easingFunc, callback)
+
+    if duration == 0 then
+      duration = 0.05
+    end
+
     -- start every pitch
     self:StopPitching();
 
