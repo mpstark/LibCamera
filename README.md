@@ -66,4 +66,4 @@ Returns true if LibCamera is currently pitching or yawing
 
 ### LibCamera:StopRotating()
 Stops any pitch or yaw actions that LibCamera is executing (and any continuous pitching/yawing in WoW) and returns any canceled yaw/pitch degrees
-`local yaw, pitch = LibCamera:StopRotation()`
+`local yaw, pitch = LibCamera:StopRotating()`
